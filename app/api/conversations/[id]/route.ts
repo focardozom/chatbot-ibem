@@ -25,11 +25,11 @@ async function getUserIdFromRequest(req: NextRequest) {
 
 // Get a specific conversation
 export async function GET(
-  req: NextRequest, 
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: { id: string } }
 ) {
   try {
-    const userId = await getUserIdFromRequest(req);
+    const userId = await getUserIdFromRequest(request);
     if (!userId) {
       return NextResponse.json(
         { success: false, message: 'Unauthorized' },
@@ -37,7 +37,7 @@ export async function GET(
       );
     }
     
-    const conversationId = params.id;
+    const conversationId = context.params.id;
     if (!conversationId) {
       return NextResponse.json(
         { success: false, message: 'Conversation ID is required' },
@@ -76,11 +76,11 @@ export async function GET(
 
 // Delete a conversation
 export async function DELETE(
-  req: NextRequest, 
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: { id: string } }
 ) {
   try {
-    const userId = await getUserIdFromRequest(req);
+    const userId = await getUserIdFromRequest(request);
     if (!userId) {
       return NextResponse.json(
         { success: false, message: 'Unauthorized' },
@@ -88,7 +88,7 @@ export async function DELETE(
       );
     }
     
-    const conversationId = params.id;
+    const conversationId = context.params.id;
     if (!conversationId) {
       return NextResponse.json(
         { success: false, message: 'Conversation ID is required' },
