@@ -23,10 +23,15 @@ async function getUserIdFromRequest(req: NextRequest) {
   }
 }
 
+// Define the params type
+interface Params {
+  id: string;
+}
+
 // Get a specific conversation
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: Params }
 ) {
   try {
     const userId = await getUserIdFromRequest(request);
@@ -37,7 +42,7 @@ export async function GET(
       );
     }
     
-    const conversationId = context.params.id;
+    const conversationId = params.id;
     if (!conversationId) {
       return NextResponse.json(
         { success: false, message: 'Conversation ID is required' },
@@ -77,7 +82,7 @@ export async function GET(
 // Delete a conversation
 export async function DELETE(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: Params }
 ) {
   try {
     const userId = await getUserIdFromRequest(request);
@@ -88,7 +93,7 @@ export async function DELETE(
       );
     }
     
-    const conversationId = context.params.id;
+    const conversationId = params.id;
     if (!conversationId) {
       return NextResponse.json(
         { success: false, message: 'Conversation ID is required' },
