@@ -46,7 +46,7 @@ export default function Home() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p className="text-lg">Loading...</p>
+        <p className="text-lg">Cargando...</p>
       </div>
     );
   }
@@ -59,13 +59,13 @@ export default function Home() {
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">IBEM Chat</h1>
           <div className="flex items-center gap-4">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Welcome, <span className="font-medium">{user?.name}</span>
+              Bienvenido, <span className="font-medium">{user?.name}</span>
             </p>
             <button
               onClick={handleLogout}
               className="rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
             >
-              Sign Out
+              Cerrar sesión
             </button>
           </div>
         </div>

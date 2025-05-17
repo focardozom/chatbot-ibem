@@ -1,12 +1,28 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
+import { generateDynamicPrompt } from '@/lib/utils/generateDynamicPrompt';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp?: string;
+}
+
+interface SimulationProfile {
+  systemPrompt: string;
+  initialMessage: string;
+  riskLevel: string;
+  responses: {
+    demographic: {
+      firstName: string;
+      lastName: string;
+      gender: string;
+      age: number;
+    };
+    [key: string]: any;
+  };
 }
 
 export default function ChatInterface() {
@@ -18,26 +34,37 @@ export default function ChatInterface() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [profile, setProfile] = useState<SimulationProfile | null>(null);
+  const [isProfileLoaded, setIsProfileLoaded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Load the profile and initialize the simulated adolescent
+  useEffect(() => {
+    if (!isProfileLoaded) {
+      try {
+        const generatedProfile = generateDynamicPrompt();
+        setProfile(generatedProfile);
+        
+        setMessages([
+          {
+            id: 'initial-greeting',
+            role: 'assistant',
+            content: `Hola, soy ${generatedProfile.responses.demographic.firstName}.`,
+            timestamp: new Date().toISOString(),
+          },
+        ]);
+        
+        setIsProfileLoaded(true);
+      } catch (error) {
+        console.error('Error generating profile:', error);
+      }
+    }
+  }, [isProfileLoaded]);
 
   // Scroll to bottom of messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
-
-  // Add an initial greeting message when the component mounts
-  useEffect(() => {
-    if (messages.length === 0) {
-      setMessages([
-        {
-          id: 'initial-greeting',
-          role: 'assistant',
-          content: 'Hi, I am IBEM. How can I help you today?',
-          timestamp: new Date().toISOString(),
-        },
-      ]);
-    }
-  }, [messages.length]);
 
   // Clear success/error messages after 5 seconds
   useEffect(() => {
@@ -71,7 +98,7 @@ export default function ChatInterface() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!input.trim()) return;
+    if (!input.trim() || !profile) return;
     
     // Add user message
     const userMessage: Message = {
@@ -85,18 +112,28 @@ export default function ChatInterface() {
     setInput('');
     setIsLoading(true);
     
-    // Prepare messages for API
+    // Prepare system prompt with the profile information
+    const systemPrompt = profile.systemPrompt;
+    
+    // Prepare conversation history
+    const conversationHistory = messages.map(({ role, content }) => ({ role, content }));
+    
+    // Add the user's new message
     const messagesToSend = [
-      ...messages.map(({ role, content }) => ({ role, content })),
+      { role: 'system' as const, content: systemPrompt },
+      ...conversationHistory,
       { role: 'user' as const, content: input },
     ];
     
     try {
-      // Call chat API
+      // Call chat API with the simulation prompt included
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: messagesToSend }),
+        body: JSON.stringify({ 
+          messages: messagesToSend,
+          simulationMode: true  // Indicate this is a simulation
+        }),
       });
       
       if (!response.ok) {
@@ -190,7 +227,7 @@ export default function ChatInterface() {
         {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error. Please try again.'}`,
+          content: `Lo siento, hubo un error al procesar tu mensaje: ${error instanceof Error ? error.message : 'Error desconocido. Por favor intenta de nuevo.'}`,
           timestamp: new Date().toISOString(),
         },
       ]);
@@ -201,12 +238,12 @@ export default function ChatInterface() {
 
   const handleSaveConversation = async () => {
     if (messages.length <= 1) {
-      setSaveError('No conversation to save.');
+      setSaveError('No hay conversación para guardar.');
       return;
     }
 
     if (!title.trim()) {
-      setSaveError('Please enter a title for this conversation.');
+      setSaveError('Por favor, ingresa un título para esta conversación.');
       return;
     }
 
@@ -233,29 +270,22 @@ export default function ChatInterface() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to save conversation');
+        throw new Error(data.message || 'Error al guardar la conversación');
       }
 
-      setSaveSuccess('Conversation saved successfully!');
+      setSaveSuccess('¡Conversación guardada exitosamente!');
       setShowSaveDialog(false);
       setTitle('');
     } catch (error) {
       console.error('Error saving conversation:', error);
-      setSaveError(error instanceof Error ? error.message : 'Failed to save conversation');
+      setSaveError(error instanceof Error ? error.message : 'Error al guardar la conversación');
     } finally {
       setIsSaving(false);
     }
   };
 
   const generateDefaultTitle = () => {
-    // Get the first user message or use a default
-    const firstUserMessage = messages.find(m => m.role === 'user');
-    if (firstUserMessage && firstUserMessage.content) {
-      // Limit title length
-      const content = firstUserMessage.content;
-      return content.length > 30 ? content.substring(0, 30) + '...' : content;
-    }
-    return `Conversation ${new Date().toLocaleString()}`;
+    return `Entrevista ${new Date().toLocaleString()}`;
   };
 
   return (
@@ -264,17 +294,17 @@ export default function ChatInterface() {
       {showSaveDialog && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-black bg-opacity-50">
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg dark:bg-gray-800">
-            <h3 className="mb-4 text-lg font-medium text-gray-900 dark:text-white">Save Conversation</h3>
+            <h3 className="mb-4 text-lg font-medium text-gray-900 dark:text-white">Guardar conversación</h3>
             <div className="mb-4">
               <label htmlFor="conversation-title" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Title
+                Título
               </label>
               <input
                 type="text"
                 id="conversation-title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Enter a title for this conversation"
+                placeholder="Ingresa un título para esta conversación"
                 className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               />
             </div>
@@ -283,14 +313,14 @@ export default function ChatInterface() {
                 onClick={() => setShowSaveDialog(false)}
                 className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
               >
-                Cancel
+                Cancelar
               </button>
               <button
                 onClick={handleSaveConversation}
                 disabled={isSaving || !title.trim()}
                 className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
               >
-                {isSaving ? 'Saving...' : 'Save'}
+                {isSaving ? 'Guardando...' : 'Guardar'}
               </button>
             </div>
           </div>
@@ -298,18 +328,22 @@ export default function ChatInterface() {
       )}
 
       {/* Header with Save Button */}
-      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2 dark:border-gray-700">
-        <h2 className="text-lg font-medium text-gray-700 dark:text-gray-300">Chat with IBEM</h2>
-        <button
-          onClick={() => {
-            setTitle(generateDefaultTitle());
-            setShowSaveDialog(true);
-          }}
-          disabled={messages.length <= 1 || isLoading}
-          className="rounded bg-green-600 px-3 py-1 text-sm font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50"
-        >
-          Save Conversation
-        </button>
+      <div className="border-b border-gray-200 px-4 py-2 dark:border-gray-700">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-medium text-gray-700 dark:text-gray-300">
+            Chat
+          </h2>
+          <button
+            onClick={() => {
+              setTitle(generateDefaultTitle());
+              setShowSaveDialog(true);
+            }}
+            disabled={messages.length <= 1 || isLoading}
+            className="rounded bg-green-600 px-3 py-1 text-sm font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50"
+          >
+            Guardar conversación
+          </button>
+        </div>
       </div>
 
       {/* Status Messages */}
@@ -327,10 +361,10 @@ export default function ChatInterface() {
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-y-auto p-4">
-        {messages.length === 0 ? (
+        {!isProfileLoaded ? (
           <div className="flex h-full items-center justify-center">
             <p className="text-center text-gray-500 dark:text-gray-400">
-              Loading...
+              Cargando...
             </p>
           </div>
         ) : (
@@ -365,16 +399,16 @@ export default function ChatInterface() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Type your message here..."
+            placeholder="Escribe tu mensaje aquí..."
             className="flex-1 rounded-md border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
-            disabled={isLoading}
+            disabled={isLoading || !isProfileLoaded}
           />
           <button
             type="submit"
             className="rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
-            disabled={isLoading || !input.trim()}
+            disabled={isLoading || !input.trim() || !isProfileLoaded}
           >
-            {isLoading ? 'Sending...' : 'Send'}
+            {isLoading ? 'Enviando...' : 'Enviar'}
           </button>
         </form>
       </div>

@@ -13,7 +13,7 @@ const model = createOpenAI({
 
 export async function POST(req: NextRequest) {
   try {
-    const { messages } = await req.json();
+    const { messages, simulationMode } = await req.json();
 
     if (!messages || !Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: 'Invalid messages format' }), {
@@ -30,6 +30,21 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Determine system message based on mode
+    let systemMessage;
+    
+    if (simulationMode) {
+      // In simulation mode, the first message should already be the system prompt
+      // which contains the adolescent profile instructions
+      systemMessage = messages[0].content;
+      
+      // Remove the system message from the messages array since we'll add it back
+      messages.shift();
+    } else {
+      // Standard chat mode
+      systemMessage = "You are IBEM, a friendly and helpful assistant. You respond concisely and accurately to user questions. When you don't know an answer, you admit it rather than making something up.";
+    }
+
     try {
       console.log(`Using OpenAI model: ${openAIModelName}`);
       
@@ -39,7 +54,7 @@ export async function POST(req: NextRequest) {
         messages: [
           {
             role: 'system',
-            content: "You are IBEM, a friendly and helpful assistant. You respond concisely and accurately to user questions. When you don't know an answer, you admit it rather than making something up.",
+            content: systemMessage,
           },
           ...messages,
         ],
@@ -65,7 +80,7 @@ export async function POST(req: NextRequest) {
           messages: [
             {
               role: 'system',
-              content: "You are IBEM, a friendly and helpful assistant. You respond concisely and accurately to user questions. When you don't know an answer, you admit it rather than making something up.",
+              content: systemMessage,
             },
             ...messages,
           ],
