@@ -4,8 +4,8 @@ import { NextRequest } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-// Use gpt-4o model which is the latest available
-const openAIModelName = process.env.OPENAI_MODEL || 'gpt-4o';
+// Use gpt-4.1 model which is the latest available
+const openAIModelName = process.env.OPENAI_MODEL || 'gpt-4.1';
 
 const model = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',
@@ -57,10 +57,10 @@ export async function POST(req: NextRequest) {
       
       // Try with a fallback model if the specified model fails
       try {
-        console.log('Falling back to gpt-3.5-turbo model');
+        console.log('Falling back to gpt-4o model');
         
         const fallbackResult = await streamText({
-          model: model('gpt-3.5-turbo'),
+          model: model('gpt-4o'),
           maxTokens: 512,
           messages: [
             {
