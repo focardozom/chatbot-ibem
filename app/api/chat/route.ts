@@ -57,10 +57,10 @@ export async function POST(req: NextRequest) {
       
       // Try with a fallback model if the specified model fails
       try {
-        console.log('Falling back to gpt-4o model');
+        console.log('Falling back to gpt-4.1 model');
         
         const fallbackResult = await streamText({
-          model: model('gpt-4o'),
+          model: model('gpt-4.1'),
           maxTokens: 512,
           messages: [
             {
