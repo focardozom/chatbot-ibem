@@ -6,12 +6,18 @@ interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  timestamp?: string;
 }
 
 export default function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [title, setTitle] = useState('');
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Scroll to bottom of messages
@@ -27,10 +33,22 @@ export default function ChatInterface() {
           id: 'initial-greeting',
           role: 'assistant',
           content: 'Hi, I am IBEM. How can I help you today?',
+          timestamp: new Date().toISOString(),
         },
       ]);
     }
   }, [messages.length]);
+
+  // Clear success/error messages after 5 seconds
+  useEffect(() => {
+    if (saveSuccess || saveError) {
+      const timer = setTimeout(() => {
+        setSaveSuccess(null);
+        setSaveError(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [saveSuccess, saveError]);
 
   // Process the streaming response data format
   const processStreamData = (text: string): string => {
@@ -60,6 +78,7 @@ export default function ChatInterface() {
       id: Date.now().toString(),
       role: 'user',
       content: input,
+      timestamp: new Date().toISOString(),
     };
     
     setMessages((prevMessages) => [...prevMessages, userMessage]);
@@ -109,6 +128,7 @@ export default function ChatInterface() {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: '',
+        timestamp: new Date().toISOString(),
       };
       
       setMessages((prevMessages) => [...prevMessages, assistantMessage]);
@@ -171,6 +191,7 @@ export default function ChatInterface() {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
           content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error. Please try again.'}`,
+          timestamp: new Date().toISOString(),
         },
       ]);
     } finally {
@@ -178,8 +199,132 @@ export default function ChatInterface() {
     }
   };
 
+  const handleSaveConversation = async () => {
+    if (messages.length <= 1) {
+      setSaveError('No conversation to save.');
+      return;
+    }
+
+    if (!title.trim()) {
+      setSaveError('Please enter a title for this conversation.');
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveError(null);
+    setSaveSuccess(null);
+
+    try {
+      const response = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title,
+          messages: messages.map(m => ({
+            role: m.role,
+            content: m.content,
+            timestamp: m.timestamp || new Date().toISOString()
+          }))
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to save conversation');
+      }
+
+      setSaveSuccess('Conversation saved successfully!');
+      setShowSaveDialog(false);
+      setTitle('');
+    } catch (error) {
+      console.error('Error saving conversation:', error);
+      setSaveError(error instanceof Error ? error.message : 'Failed to save conversation');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const generateDefaultTitle = () => {
+    // Get the first user message or use a default
+    const firstUserMessage = messages.find(m => m.role === 'user');
+    if (firstUserMessage && firstUserMessage.content) {
+      // Limit title length
+      const content = firstUserMessage.content;
+      return content.length > 30 ? content.substring(0, 30) + '...' : content;
+    }
+    return `Conversation ${new Date().toLocaleString()}`;
+  };
+
   return (
     <div className="flex h-full flex-col rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      {/* Save Dialog */}
+      {showSaveDialog && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg dark:bg-gray-800">
+            <h3 className="mb-4 text-lg font-medium text-gray-900 dark:text-white">Save Conversation</h3>
+            <div className="mb-4">
+              <label htmlFor="conversation-title" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Title
+              </label>
+              <input
+                type="text"
+                id="conversation-title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Enter a title for this conversation"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => setShowSaveDialog(false)}
+                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveConversation}
+                disabled={isSaving || !title.trim()}
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+              >
+                {isSaving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Header with Save Button */}
+      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2 dark:border-gray-700">
+        <h2 className="text-lg font-medium text-gray-700 dark:text-gray-300">Chat with IBEM</h2>
+        <button
+          onClick={() => {
+            setTitle(generateDefaultTitle());
+            setShowSaveDialog(true);
+          }}
+          disabled={messages.length <= 1 || isLoading}
+          className="rounded bg-green-600 px-3 py-1 text-sm font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50"
+        >
+          Save Conversation
+        </button>
+      </div>
+
+      {/* Status Messages */}
+      {(saveSuccess || saveError) && (
+        <div 
+          className={`mx-4 mt-2 rounded-md p-3 text-sm ${
+            saveSuccess 
+              ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-400' 
+              : 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+          }`}
+        >
+          {saveSuccess || saveError}
+        </div>
+      )}
+
       {/* Chat Messages */}
       <div className="flex-1 overflow-y-auto p-4">
         {messages.length === 0 ? (
