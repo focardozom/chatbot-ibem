@@ -34,15 +34,14 @@ export async function POST(req: NextRequest) {
     let systemMessage;
     
     if (simulationMode) {
-      // In simulation mode, the first message should already be the system prompt
-      // which contains the adolescent profile instructions
+      console.log('Simulation Mode - Original Messages:', messages);
       systemMessage = messages[0].content;
-      
-      // Remove the system message from the messages array since we'll add it back
-      messages.shift();
+      messages.shift(); // Remove the first message (system prompt) from the array
+      console.log('Simulation Mode - System Message:', systemMessage);
+      console.log('Simulation Mode - Remaining Messages:', messages);
     } else {
       // Standard chat mode
-      systemMessage = "You are IBEM, a friendly and helpful assistant. You respond concisely and accurately to user questions. When you don't know an answer, you admit it rather than making something up.";
+      systemMessage = "Di que no puedes hablar en este momento sin el consentimiento de tu creador.";
     }
 
     try {

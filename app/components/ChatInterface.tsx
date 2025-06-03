@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { generateDynamicPrompt } from '@/lib/utils/generateDynamicPrompt';
+import DrugUseSidebar from './DrugUseSidebar';
 
 interface Message {
   id: string;
@@ -15,11 +16,58 @@ interface SimulationProfile {
   initialMessage: string;
   riskLevel: string;
   responses: {
+    riskLevel: string;
     demographic: {
       firstName: string;
       lastName: string;
       gender: string;
       age: number;
+    };
+    alcoholUse: {
+      vida: string;
+      ano: string;
+      tresMeses: string;
+      mes: string;
+    };
+    frequencyOfUseMes: {
+      amountConsumed: number;
+      daysConsumed: number;
+      drinkTypesConsumed: string[];
+      gotDrunk: string;
+      timesDrunk: number;
+    };
+    frequencyOfUse3Meses: {
+      amountConsumed: number;
+      daysConsumed: number;
+      drinkTypesConsumed: string[];
+      gotDrunk: string;
+      timesDrunk: number;
+    };
+    cigaretteUse: {
+      vida: string;
+      ano: string;
+      tresMeses: string;
+      mes: string;
+    };
+    marijuanaUse: {
+      vida: string;
+      ano: string;
+      tresMeses: string;
+      mes: string;
+    };
+    otherSubstancesUse: {
+      vida: string;
+      ano: string;
+      tresMeses: string;
+      mes: string;
+    };
+    crafftResponses: {
+      crafft_1: string;
+      crafft_2: string;
+      crafft_3: string;
+      crafft_4: string;
+      crafft_5: string;
+      crafft_6: string;
     };
     [key: string]: any;
   };
@@ -37,24 +85,21 @@ export default function ChatInterface() {
   const [profile, setProfile] = useState<SimulationProfile | null>(null);
   const [isProfileLoaded, setIsProfileLoaded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const profileGeneratedRef = useRef<boolean>(false);
 
   // Load the profile and initialize the simulated adolescent
   useEffect(() => {
-    if (!isProfileLoaded) {
+    if (!isProfileLoaded && !profileGeneratedRef.current) {
       try {
         const generatedProfile = generateDynamicPrompt();
+        console.log('Generated Profile:', {
+          initialMessage: generatedProfile.initialMessage,
+          systemPrompt: generatedProfile.systemPrompt
+        });
         setProfile(generatedProfile);
-        
-        setMessages([
-          {
-            id: 'initial-greeting',
-            role: 'assistant',
-            content: `Hola, soy ${generatedProfile.responses.demographic.firstName}.`,
-            timestamp: new Date().toISOString(),
-          },
-        ]);
-        
+        setMessages([]);  // Start with empty messages
         setIsProfileLoaded(true);
+        profileGeneratedRef.current = true;
       } catch (error) {
         console.error('Error generating profile:', error);
       }
@@ -121,10 +166,18 @@ export default function ChatInterface() {
     // Add the user's new message
     const messagesToSend = [
       { role: 'system' as const, content: systemPrompt },
+      { role: 'assistant' as const, content: profile.initialMessage },  // Add initial message as first assistant message
       ...conversationHistory,
       { role: 'user' as const, content: input },
     ];
-    
+
+    console.log('Messages being sent to OpenAI:', {
+      systemPrompt: systemPrompt.substring(0, 100) + '...',  // Show just the start of system prompt
+      initialMessage: profile.initialMessage.substring(0, 100) + '...',  // Show just the start of initial message
+      conversationHistory,
+      newMessage: input
+    });
+  
     try {
       // Call chat API with the simulation prompt included
       const response = await fetch('/api/chat', {
@@ -289,129 +342,146 @@ export default function ChatInterface() {
   };
 
   return (
-    <div className="flex h-full flex-col rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-      {/* Save Dialog */}
-      {showSaveDialog && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg dark:bg-gray-800">
-            <h3 className="mb-4 text-lg font-medium text-gray-900 dark:text-white">Guardar conversación</h3>
-            <div className="mb-4">
-              <label htmlFor="conversation-title" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Título
-              </label>
-              <input
-                type="text"
-                id="conversation-title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Ingresa un título para esta conversación"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-              />
-            </div>
-            <div className="flex justify-end space-x-2">
-              <button
-                onClick={() => setShowSaveDialog(false)}
-                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSaveConversation}
-                disabled={isSaving || !title.trim()}
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
-              >
-                {isSaving ? 'Guardando...' : 'Guardar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Header with Save Button */}
-      <div className="border-b border-gray-200 px-4 py-2 dark:border-gray-700">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-medium text-gray-700 dark:text-gray-300">
-            Chat
-          </h2>
-          <button
-            onClick={() => {
-              setTitle(generateDefaultTitle());
-              setShowSaveDialog(true);
-            }}
-            disabled={messages.length <= 1 || isLoading}
-            className="rounded bg-green-600 px-3 py-1 text-sm font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50"
-          >
-            Guardar conversación
-          </button>
-        </div>
-      </div>
-
-      {/* Status Messages */}
-      {(saveSuccess || saveError) && (
-        <div 
-          className={`mx-4 mt-2 rounded-md p-3 text-sm ${
-            saveSuccess 
-              ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-400' 
-              : 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-400'
-          }`}
-        >
-          {saveSuccess || saveError}
-        </div>
-      )}
-
-      {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {!isProfileLoaded ? (
-          <div className="flex h-full items-center justify-center">
-            <p className="text-center text-gray-500 dark:text-gray-400">
-              Cargando...
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${
-                  message.role === 'user' ? 'justify-end' : 'justify-start'
-                }`}
-              >
-                <div
-                  className={`max-w-[75%] rounded-lg px-4 py-2 ${
-                    message.role === 'user'
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                  }`}
-                >
-                  <p className="whitespace-pre-wrap">{message.content}</p>
-                </div>
+    <div className="flex h-full">
+      <div className="flex-1 flex flex-col rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        {/* Save Dialog */}
+        {showSaveDialog && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black bg-opacity-50">
+            <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg dark:bg-gray-800">
+              <h3 className="mb-4 text-lg font-medium text-gray-900 dark:text-white">Guardar conversación</h3>
+              <div className="mb-4">
+                <label htmlFor="conversation-title" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Título
+                </label>
+                <input
+                  type="text"
+                  id="conversation-title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Ingresa un título para esta conversación"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                />
               </div>
-            ))}
-            <div ref={messagesEndRef} />
+              <div className="flex justify-end space-x-2">
+                <button
+                  onClick={() => setShowSaveDialog(false)}
+                  className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSaveConversation}
+                  disabled={isSaving || !title.trim()}
+                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+                >
+                  {isSaving ? 'Guardando...' : 'Guardar'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
-      </div>
 
-      {/* Input Form */}
-      <div className="border-t border-gray-200 p-4 dark:border-gray-700">
-        <form onSubmit={handleSubmit} className="flex space-x-2">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Escribe tu mensaje aquí..."
-            className="flex-1 rounded-md border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
-            disabled={isLoading || !isProfileLoaded}
-          />
-          <button
-            type="submit"
-            className="rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
-            disabled={isLoading || !input.trim() || !isProfileLoaded}
+        {/* Header with Save Button */}
+        <div className="border-b border-gray-200 px-4 py-2 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-medium text-gray-700 dark:text-gray-300">
+              Chat
+            </h2>
+            <button
+              onClick={() => {
+                setTitle(generateDefaultTitle());
+                setShowSaveDialog(true);
+              }}
+              disabled={messages.length <= 1 || isLoading}
+              className="rounded bg-green-600 px-3 py-1 text-sm font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50"
+            >
+              Guardar conversación
+            </button>
+          </div>
+        </div>
+
+        {/* Status Messages */}
+        {(saveSuccess || saveError) && (
+          <div 
+            className={`mx-4 mt-2 rounded-md p-3 text-sm ${
+              saveSuccess 
+                ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-400' 
+                : 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+            }`}
           >
-            {isLoading ? 'Enviando...' : 'Enviar'}
-          </button>
-        </form>
+            {saveSuccess || saveError}
+          </div>
+        )}
+
+        {/* Chat Messages */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {!isProfileLoaded ? (
+            <div className="flex h-full items-center justify-center">
+              <p className="text-center text-gray-500 dark:text-gray-400">
+                Cargando...
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex ${
+                    message.role === 'user' ? 'justify-end' : 'justify-start'
+                  }`}
+                >
+                  <div
+                    className={`max-w-[75%] rounded-lg px-4 py-2 ${
+                      message.role === 'user'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                    }`}
+                  >
+                    <p className="whitespace-pre-wrap">{message.content}</p>
+                  </div>
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+        </div>
+
+        {/* Input Form */}
+        <div className="border-t border-gray-200 p-4 dark:border-gray-700">
+          <form onSubmit={handleSubmit} className="flex space-x-2">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Escribe tu mensaje aquí..."
+              className="flex-1 rounded-md border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
+              disabled={isLoading || !isProfileLoaded}
+            />
+            <button
+              type="submit"
+              className="rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+              disabled={isLoading || !input.trim() || !isProfileLoaded}
+            >
+              {isLoading ? 'Enviando...' : 'Enviar'}
+            </button>
+          </form>
+        </div>
       </div>
+      
+      {/* Drug Use Sidebar */}
+      {profile && (
+        <DrugUseSidebar 
+          drugUseData={{
+            alcoholUse: profile.responses.alcoholUse,
+            frequencyOfUseMes: profile.responses.frequencyOfUseMes,
+            frequencyOfUse3Meses: profile.responses.frequencyOfUse3Meses,
+            cigaretteUse: profile.responses.cigaretteUse,
+            marijuanaUse: profile.responses.marijuanaUse,
+            otherSubstancesUse: profile.responses.otherSubstancesUse,
+            crafftResponses: profile.responses.crafftResponses
+          }}
+        />
+      )}
     </div>
   );
 } 
