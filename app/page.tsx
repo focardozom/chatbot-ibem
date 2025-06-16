@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import ChatInterface from "./components/ChatInterface";
+import Image from 'next/image';
 
 export default function Home() {
   const router = useRouter();

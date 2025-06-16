@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 export default function Login() {
   const router = useRouter();
@@ -42,9 +43,18 @@ export default function Login() {
     <div className="flex min-h-screen flex-col items-center justify-center p-6">
       <div className="w-full max-w-md space-y-8 rounded-lg border border-gray-200 bg-white p-8 shadow-md dark:border-gray-700 dark:bg-gray-800">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">IBEM Chat</h1>
+          <div className="mb-4 flex justify-center">
+            <Image
+              src="/images/logo.png"
+              alt="IBEM Logo"
+              width={120}
+              height={120}
+              priority
+            />
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">IBEM Chatbot</h1>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Sign in to your account to continue
+            Inicia sesión para continuar
           </p>
         </div>
 
@@ -58,7 +68,7 @@ export default function Login() {
           <div className="space-y-4">
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Username
+                Usuario
               </label>
               <input
                 id="username"
@@ -75,7 +85,7 @@ export default function Login() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Password
+                Contraseña
               </label>
               <input
                 id="password"
